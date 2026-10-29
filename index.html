@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="bn" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000" id="tc">
+<title>জপমালা</title>
+<style>
+  :root, [data-theme="dark"] {
+    --bg: #000;
+    --fg: #fff;
+    --dim: #8a8a8a;
+    --line: #2a2a2a;
+    --pulse: rgba(255,255,255,.7);
+    --pulse0: rgba(255,255,255,0);
+    --imgfilter: none;
+  }
+  /* Night: deep grey, soft off-white, low glare */
+  [data-theme="night"] {
+    --bg: #1b1c1e;
+    --fg: #cfccc6;
+    --dim: #84827d;
+    --line: #2d2e31;
+    --pulse: rgba(207,204,198,.4);
+    --pulse0: rgba(207,204,198,0);
+    --imgfilter: brightness(.82) contrast(.95);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Helvetica Neue", Helvetica, Arial, "Noto Sans Bengali", "Kalpurush", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: max(16px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+    user-select: none;
+    -webkit-user-select: none;
+    overflow: hidden;
+    transition: background .3s, color .3s;
+  }
+
+  /* Deity image: fits whole (contain), then pinch / wheel / double-tap to zoom */
+  .deity {
+    width: 100%;
+    max-width: 420px;
+    height: 34vh;
+    min-height: 150px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    background: var(--bg);
+    touch-action: pan-y;
+  }
+  .deity.has { border-color: transparent; cursor: grab; touch-action: none; }
+  .deity.has.panning { cursor: grabbing; }
+  .deity img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: none;
+    transform-origin: center center;
+    will-change: transform;
+    filter: var(--imgfilter);
+    pointer-events: none;
+    -webkit-user-drag: none;
+  }
+  .deity.has img { display: block; }
+  .deity .empty {
+    color: var(--dim);
+    font-size: 15px;
+    text-align: center;
+    line-height: 1.6;
+    padding: 0 20px;
+  }
+  .deity.has .empty { display: none; }
+
+  .bar {
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 6px;
+    flex-shrink: 0;
+    min-height: 28px;
+  }
+  .bar .right { display: flex; gap: 18px; visibility: hidden; }
+  .bar .right.show { visibility: visible; }
+  .link {
+    background: none; border: 0; color: var(--dim);
+    font: inherit; font-size: 13px; padding: 4px 0; cursor: pointer;
+  }
+  .link:hover, .link:focus-visible { color: var(--fg); outline: none; text-decoration: underline; }
+  .theme {
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .theme i {
+    width: 12px; height: 12px; border-radius: 50%;
+    border: 1.5px solid currentColor; display: inline-block;
+    background: linear-gradient(90deg, currentColor 50%, transparent 50%);
+  }
+
+  main {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    gap: 16px;
+  }
+  .stats { display: flex; gap: 36px; color: var(--dim); font-size: 14px; text-align: center; }
+  .stats b {
+    display: block; color: var(--fg); font-size: 20px; font-weight: 400;
+    font-variant-numeric: tabular-nums; margin-bottom: 2px;
+  }
+
+  .tap-wrap {
+    position: relative;
+    width: min(66vw, 46vh, 320px);
+    aspect-ratio: 1;
+    flex-shrink: 0;
+  }
+  svg.ring {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    transform: rotate(-90deg); pointer-events: none;
+  }
+  .ring circle { fill: none; stroke-width: 2; }
+  .ring .track { stroke: var(--line); }
+  .ring .prog { stroke: var(--fg); stroke-linecap: round; transition: stroke-dashoffset .15s ease-out; }
+
+  .tap {
+    position: absolute;
+    inset: 12px;
+    border-radius: 50%;
+    border: 0;
+    background: var(--fg);
+    color: var(--bg);
+    font: inherit;
+    font-size: min(24vw, 17vh, 112px);
+    font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform .08s ease-out, background .3s, color .3s;
+  }
+  .tap:active, .tap.down { transform: scale(.96); }
+  .tap:focus-visible { outline: 2px solid var(--fg); outline-offset: 5px; }
+  .tap.done { animation: pulse .5s ease-out; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 var(--pulse); }
+    100% { box-shadow: 0 0 0 28px var(--pulse0); }
+  }
+
+  .controls { display: flex; gap: 28px; }
+  .controls .link { font-size: 14px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tap, .ring .prog, body { transition: none; }
+    .tap.done { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="deity" id="deity" role="button" tabindex="0" aria-label="ইষ্টদেবতার ছবি">
+    <img id="img" alt="ইষ্টদেবতা" draggable="false">
+    <div class="empty">ইষ্টদেবতার ছবি যোগ করুন<br><small>গ্যালারি থেকে বেছে নিন</small></div>
+  </div>
+  <div class="bar">
+    <button class="link theme" id="theme" aria-label="থিম বদলান"><i></i><span id="themeName">ডার্ক</span></button>
+    <div class="right" id="imgActions">
+      <button class="link" id="zoomReset">জুম রিসেট</button>
+      <button class="link" id="change">ছবি বদলান</button>
+      <button class="link" id="remove">সরান</button>
+    </div>
+  </div>
+  <input type="file" id="file" accept="image/*" hidden>
+
+  <main>
+    <div class="stats">
+      <div><b id="cycles">0</b>মালা</div>
+      <div><b id="total">0</b>মোট জপ</div>
+    </div>
+
+    <div class="tap-wrap">
+      <svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
+        <circle class="track" cx="50" cy="50" r="48.5"/>
+        <circle class="prog" id="prog" cx="50" cy="50" r="48.5"/>
+      </svg>
+      <button class="tap" id="tap" aria-label="জপ গণনা">0</button>
+    </div>
+
+    <div class="controls">
+      <button class="link" id="undo">এক ধাপ পিছনে</button>
+      <button class="link" id="reset">রিসেট</button>
+    </div>
+  </main>
+
+<script>
+(function () {
+  var CYCLE = 108;
+  var KEY = "japa-mala-v1", IMG_KEY = "japa-mala-img-v1", THEME_KEY = "japa-mala-theme-v1";
+  var C = 2 * Math.PI * 48.5;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var tap = $("tap"), prog = $("prog"), cyclesEl = $("cycles"), totalEl = $("total");
+  var deity = $("deity"), img = $("img"), file = $("file"), imgActions = $("imgActions");
+
+  prog.style.strokeDasharray = C;
+
+  /* ---------- Theme ---------- */
+  var root = document.documentElement;
+  function setTheme(t) {
+    root.setAttribute("data-theme", t);
+    $("themeName").textContent = t === "night" ? "নাইট" : "ডার্ক";
+    $("tc").setAttribute("content", t === "night" ? "#1b1c1e" : "#000000");
+    try { localStorage.setItem(THEME_KEY, t); } catch (e) {}
+  }
+  var savedTheme = "dark";
+  try { savedTheme = localStorage.getItem(THEME_KEY) || "dark"; } catch (e) {}
+  setTheme(savedTheme === "night" ? "night" : "dark");
+  $("theme").addEventListener("click", function () {
+    setTheme(root.getAttribute("data-theme") === "night" ? "dark" : "night");
+  });
+
+  /* ---------- Counter ---------- */
+  var state = { count: 0, cycles: 0 };
+  try {
+    var s = JSON.parse(localStorage.getItem(KEY));
+    if (s && typeof s.count === "number") state = s;
+  } catch (e) {}
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  function render() {
+    tap.textContent = state.count;
+    cyclesEl.textContent = state.cycles;
+    totalEl.textContent = state.cycles * CYCLE + state.count;
+    prog.style.strokeDashoffset = C * (1 - state.count / CYCLE);
+  }
+  function buzz(p) { if (navigator.vibrate) { try { navigator.vibrate(p); } catch (e) {} } }
+
+  function add() {
+    state.count++;
+    if (state.count >= CYCLE) {
+      state.count = 0; state.cycles++;
+      buzz([60, 50, 60]);
+      tap.classList.remove("done"); void tap.offsetWidth; tap.classList.add("done");
+    } else { buzz(12); }
+    save(); render();
+  }
+
+  tap.addEventListener("pointerdown", function (e) {
+    e.preventDefault(); tap.classList.add("down"); add();
+  });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(function (ev) {
+    tap.addEventListener(ev, function () { tap.classList.remove("down"); });
+  });
+  tap.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); add(); }
+  });
+
+  $("undo").addEventListener("click", function () {
+    if (state.count > 0) state.count--;
+    else if (state.cycles > 0) { state.cycles--; state.count = CYCLE - 1; }
+    save(); render();
+  });
+  $("reset").addEventListener("click", function () {
+    if (state.count === 0 && state.cycles === 0) return;
+    if (confirm("গণনা শূন্য থেকে শুরু করবেন?")) { state = { count: 0, cycles: 0 }; save(); render(); }
+  });
+
+  /* ---------- Image + zoom ---------- */
+  var sc = 1, tx = 0, ty = 0, MAX = 6;
+
+  function clamp() {
+    var bw = deity.clientWidth, bh = deity.clientHeight;
+    var dw = img.clientWidth * sc, dh = img.clientHeight * sc;
+    var mx = Math.max(0, (dw - bw) / 2), my = Math.max(0, (dh - bh) / 2);
+    tx = Math.min(mx, Math.max(-mx, tx));
+    ty = Math.min(my, Math.max(-my, ty));
+  }
+  function apply() {
+    clamp();
+    img.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + sc + ")";
+  }
+  // zoom to scale ns keeping the point (px,py) — relative to box centre — fixed
+  function zoomAt(px, py, ns) {
+    ns = Math.min(MAX, Math.max(1, ns));
+    var k = ns / sc;
+    tx = px - (px - tx) * k;
+    ty = py - (py - ty) * k;
+    sc = ns;
+    if (sc === 1) { tx = 0; ty = 0; }
+    apply();
+  }
+  function rel(e) {
+    var r = deity.getBoundingClientRect();
+    return { x: e.clientX - r.left - r.width / 2, y: e.clientY - r.top - r.height / 2 };
+  }
+  function resetZoom() { sc = 1; tx = 0; ty = 0; apply(); }
+
+  var ptrs = {}, lastDist = 0, lastMid = null, moved = false, lastTapT = 0;
+
+  deity.addEventListener("pointerdown", function (e) {
+    if (!deity.classList.contains("has")) return;
+    deity.setPointerCapture(e.pointerId);
+    ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    moved = false;
+    var ids = Object.keys(ptrs);
+    if (ids.length === 2) {
+      var a = ptrs[ids[0]], b = ptrs[ids[1]];
+      lastDist = Math.hypot(a.x - b.x, a.y - b.y);
+      lastMid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    }
+    deity.classList.add("panning");
+  });
+
+  deity.addEventListener("pointermove", function (e) {
+    var p = ptrs[e.pointerId];
+    if (!p) return;
+    var ids = Object.keys(ptrs);
+    if (ids.length >= 2) {
+      var a = ptrs[ids[0]], b = ptrs[ids[1]];
+      if (e.pointerId == ids[0]) a = { x: e.clientX, y: e.clientY };
+      else if (e.pointerId == ids[1]) b = { x: e.clientX, y: e.clientY };
+      var d = Math.hypot(a.x - b.x, a.y - b.y);
+      var mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      var r = deity.getBoundingClientRect();
+      if (lastDist > 0) {
+        tx += mid.x - lastMid.x; ty += mid.y - lastMid.y;
+        zoomAt(mid.x - r.left - r.width / 2, mid.y - r.top - r.height / 2, sc * d / lastDist);
+      }
+      lastDist = d; lastMid = mid; moved = true;
+    } else if (sc > 1) {
+      tx += e.clientX - p.x; ty += e.clientY - p.y;
+      apply();
+      if (Math.abs(e.clientX - p.x) + Math.abs(e.clientY - p.y) > 1) moved = true;
+    }
+    p.x = e.clientX; p.y = e.clientY;
+  });
+
+  function endPtr(e) {
+    if (!ptrs[e.pointerId]) return;
+    delete ptrs[e.pointerId];
+    lastDist = 0;
+    if (!Object.keys(ptrs).length) {
+      deity.classList.remove("panning");
+      // double-tap: toggle zoom at the tapped point
+      if (!moved && e.type === "pointerup") {
+        var now = Date.now();
+        if (now - lastTapT < 300) {
+          var q = rel(e);
+          if (sc > 1.05) resetZoom(); else zoomAt(q.x, q.y, 2.8);
+          lastTapT = 0;
+        } else lastTapT = now;
+      }
+    }
+  }
+  deity.addEventListener("pointerup", endPtr);
+  deity.addEventListener("pointercancel", endPtr);
+
+  deity.addEventListener("wheel", function (e) {
+    if (!deity.classList.contains("has")) return;
+    e.preventDefault();
+    var q = rel(e);
+    zoomAt(q.x, q.y, sc * Math.exp(-e.deltaY * 0.0025));
+  }, { passive: false });
+
+  window.addEventListener("resize", apply);
+  $("zoomReset").addEventListener("click", resetZoom);
+
+  function showImg(src) {
+    resetZoom();
+    if (src) {
+      img.src = src;
+      deity.classList.add("has");
+      imgActions.classList.add("show");
+      deity.setAttribute("aria-label", "ইষ্টদেবতার ছবি — জুম করতে দুবার ট্যাপ বা পিঞ্চ করুন");
+    } else {
+      img.removeAttribute("src");
+      deity.classList.remove("has");
+      imgActions.classList.remove("show");
+      deity.setAttribute("aria-label", "ইষ্টদেবতার ছবি যোগ করুন");
+    }
+  }
+  try { showImg(localStorage.getItem(IMG_KEY)); } catch (e) {}
+
+  function pick() { file.click(); }
+  // Empty box opens the gallery; once a photo is set, taps are for zooming
+  deity.addEventListener("click", function () { if (!deity.classList.contains("has")) pick(); });
+  deity.addEventListener("keydown", function (e) {
+    if ((e.key === "Enter" || e.key === " ") && !deity.classList.contains("has")) { e.preventDefault(); pick(); }
+  });
+  $("change").addEventListener("click", pick);
+  $("remove").addEventListener("click", function () {
+    try { localStorage.removeItem(IMG_KEY); } catch (e) {}
+    showImg(null); file.value = "";
+  });
+
+  file.addEventListener("change", function () {
+    var f = file.files && file.files[0];
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var im = new Image();
+      im.onload = function () {
+        // keep high resolution so face detail stays sharp when zoomed
+        var max = 2000, k = Math.min(1, max / Math.max(im.width, im.height));
+        var cv = document.createElement("canvas");
+        cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k);
+        cv.getContext("2d").drawImage(im, 0, 0, cv.width, cv.height);
+        var data = cv.toDataURL("image/jpeg", 0.9);
+        showImg(data);
+        try { localStorage.setItem(IMG_KEY, data); } catch (e) {
+          try { data = cv.toDataURL("image/jpeg", 0.7); localStorage.setItem(IMG_KEY, data); } catch (e2) {}
+        }
+        file.value = "";
+      };
+      im.src = reader.result;
+    };
+    reader.readAsDataURL(f);
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
